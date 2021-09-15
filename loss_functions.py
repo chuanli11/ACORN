@@ -16,6 +16,22 @@ def image_mse(model_output, gt, step, tiling_every=100, dataset=None, model_type
     return {'img_loss': img_loss.mean()}
 
 
+def volume_mse(model_output, gt, step, tiling_every=100, dataset=None,
+                  model_type='multiscale', pruning_fn=None, retile=True):
+    volume_loss = (model_output['model_out']['output'] - gt['gt'])**2
+
+    if model_type == 'multiscale':
+        per_octant_loss = torch.mean(volume_loss, dim=(-1, -2)).squeeze(0).detach().cpu().numpy()
+
+        dataset.update_octant_err(per_octant_loss, step)
+        if step % tiling_every == tiling_every-1 and retile:
+            tiling_stats = dataset.update_tiling()
+            if tiling_stats['merged'] != 0 or tiling_stats['splits'] != 0:
+                dataset.synchronize()
+
+    return {'volume_loss': volume_loss.mean()}
+
+
 def occupancy_bce(model_output, gt, step, tiling_every=100, dataset=None,
                   model_type='multiscale', pruning_fn=None, retile=True):
     occupancy_loss = torch.nn.BCEWithLogitsLoss(reduction='none')(model_output['model_out']['output'], gt['occupancy'].float())

@@ -25,3 +25,4 @@ dependencies:
     - pycollada==0.7.1
     - pymcubes==0.1.2
     - trimesh==3.9.25
+    - h5py==3.4.0
