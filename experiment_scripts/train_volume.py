@@ -117,6 +117,14 @@ def main():
     if opt.load is not None:
         resume_checkpoint = load_from_checkpoint(opt.load, model, coord_dataset)
 
+    if opt.export:
+        assert opt.load is not None, 'Need to specify which model to export with --load'
+
+        export_mesh(model, coord_dataset, opt.upsample, opt.mc_threshold)
+
+        print('Model exported ... ')
+        return        
+
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"\n\nTrainable Parameters: {num_params}\n\n")
 
@@ -180,5 +188,24 @@ def load_from_checkpoint(experiment_dir, model, coord_dataset):
 
     return resume_checkpoint
 
+def export_mesh(model, dataset, upsample, mcubes_threshold=0.005):
+    res = 3*(upsample*opt.res,)
+    model.octant_size = model.octant_size * upsample
+
+    print('Export: calculating occupancy...')
+    mrc_fname = os.path.join(opt.logging_root, opt.experiment_name, f"{opt.experiment_name}.mrc")
+    occupancy = utils.write_occupancy_multiscale_summary(res, dataset, model,
+                                                         None, None, None, None, None,
+                                                         output_mrc=mrc_fname,
+                                                         oversample=upsample,
+                                                         mode='hq')
+
+    print('Export: running marching cubes...')
+    vertices, faces = mcubes.marching_cubes(occupancy, mcubes_threshold)
+
+    print('Export: exporting mesh...')
+    out_fname = os.path.join(opt.logging_root, opt.experiment_name, f"{opt.experiment_name}.dae")
+    mcubes.export_mesh(vertices, faces, out_fname)
+    
 if __name__ == '__main__':
     main()

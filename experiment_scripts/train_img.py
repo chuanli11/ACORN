@@ -215,10 +215,12 @@ def main():
 # evaluate PSNR at saved checkpoints and save model outputs
 def run_eval(model, coord_dataset):
     # get checkpoint directory
-    checkpoint_dir = os.path.join(os.path.dirname(opt.config), 'checkpoints')
+    # checkpoint_dir = os.path.join(os.path.dirname(opt.config), 'checkpoints')
+    checkpoint_dir = os.path.join(opt.resume[0], 'checkpoints')
 
     # make eval directory
-    eval_dir = os.path.join(os.path.dirname(opt.config), 'eval')
+    # eval_dir = os.path.join(os.path.dirname(opt.config), 'eval')
+    eval_dir = os.path.join(opt.resume[0], 'eval')
     utils.cond_mkdir(eval_dir)
 
     # get model & optim files
@@ -315,6 +317,7 @@ def run_eval(model, coord_dataset):
         pred_out = pred_out.astype(np.uint8)
         pred_fname = os.path.join(eval_dir, f'pred_{curr_iter:06d}.png')
         print('Saving image')
+        print(pred_fname)
         cv2.imwrite(pred_fname, cv2.cvtColor(pred_out, cv2.COLOR_RGB2BGR))
 
         if not saved_gt:

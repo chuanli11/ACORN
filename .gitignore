@@ -3,3 +3,4 @@ inside_mesh/
 logs/
 data/*
 *.pyc
+*.mrc
