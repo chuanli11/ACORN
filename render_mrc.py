@@ -6,7 +6,7 @@ from PIL import Image
 
 filename = '/media/ubuntu/WDC/ACORN/logs/photon/photon.mrc'
 output_dir = '/media/ubuntu/WDC/ACORN/logs/photon/render'
-step = 32
+step = 8
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -17,7 +17,7 @@ with mrcfile.open(filename) as mrc:
 	print(np.amax(mrc.data))
 	print(np.amin(mrc.data))
 
-	my_data = (np.clip(mrc.data + 0.5, 0, 1) * 255.0).astype(np.uint8)
+	my_data = (np.clip((mrc.data + 1.0) / 2, 0, 1) * 255.0).astype(np.uint8)
 	print(np.amax(my_data))
 	print(np.amin(my_data))
 

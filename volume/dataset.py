@@ -13,10 +13,8 @@ class VolumeDataset():
         if not filename:
             return
 
-        step = 5
         plib = PhotonLibrary(filename)
         self.data = plib.numpy()
-        self.data = self.data[0:-1:step, 0:-1:step, 0:-1:step, :]
         self.data_shape = self.data.shape[0:-1]
 
         # get the min and max
@@ -29,7 +27,8 @@ class VolumeDataset():
 
         self.data = np.reshape(self.data, (-1, self.data.shape[-1]))
         self.data = np.sum(self.data, -1)
-        self.data = ((self.data - np.amin(self.data)) / (np.amax(self.data) - np.amin(self.data)) - 0.5).astype(np.float32)
+        # Normalize to [-1.0, 1.0] the value range of sin function
+        self.data = 2.0 * ((self.data - np.amin(self.data)) / (np.amax(self.data) - np.amin(self.data)) - 0.5).astype(np.float32)
 
         x = np.linspace(0, self.data_shape[0] - 1, self.data_shape[0])
         y = np.linspace(0, self.data_shape[1] - 1, self.data_shape[1])

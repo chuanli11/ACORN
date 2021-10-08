@@ -112,6 +112,14 @@ def main():
     dataloader = DataLoader(coord_dataset, shuffle=False, batch_size=1, pin_memory=True,
                             num_workers=opt.num_workers)
 
+    # for i_batch, sample_batch in enumerate(dataloader):
+    #     print(sample_batch[1]['img'].shape)
+    #     print(torch.max(sample_batch[1]['img']))
+    #     print(torch.min(sample_batch[1]['img']))
+    #     break
+    
+    # sys.exit()
+    
     if opt.resume is not None:
         path, iter = opt.resume
         iter = int(iter)

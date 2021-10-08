@@ -90,7 +90,7 @@ def main():
     utils.cond_mkdir(root_path)
 
     volume_dataset = dataset.VolumeDataset(opt.input_filepath)
-
+    
     coord_dataset = dataset.Block3DWrapperMultiscaleAdaptive(volume_dataset,
                                                              sidelength=opt.res,
                                                              octant_size=opt.octant_size,
@@ -103,8 +103,14 @@ def main():
                             num_workers=opt.num_workers)
 
 
-    # for i_batch, sample_batch in enumerate(dataloader):
-    #     break
+    for i_batch, sample_batch in enumerate(dataloader):
+        print('gt batch shape: ')
+        print(sample_batch[1]['gt'].shape)
+        print('gt max value: ')
+        print(torch.max(sample_batch[1]['gt']))
+        print('gt min value: ')
+        print(torch.min(sample_batch[1]['gt']))
+        break
 
     model = modules.ImplicitAdaptiveOctantNet(in_features=3+1, out_features=1,
                                               num_hidden_layers=opt.hidden_layers,
