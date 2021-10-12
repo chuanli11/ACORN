@@ -90,7 +90,23 @@ def main():
     utils.cond_mkdir(root_path)
 
     volume_dataset = dataset.VolumeDataset(opt.input_filepath)
-    
+
+    import numpy as np
+
+    print('Raw data dim_x, dim_y, dim_z, reshaped_data --------------------------------------------')
+    print(volume_dataset.dim_x)
+    print(volume_dataset.dim_y)
+    print(volume_dataset.dim_z)
+    print(volume_dataset.coord.shape)
+
+    print('min/max value of raw data coord  --------------------------------------------')
+    print(np.amax(volume_dataset.coord[:, 0]))
+    print(np.amin(volume_dataset.coord[:, 0]))
+    print(np.amax(volume_dataset.coord[:, 1]))
+    print(np.amin(volume_dataset.coord[:, 1]))
+    print(np.amax(volume_dataset.coord[:, 2]))
+    print(np.amin(volume_dataset.coord[:, 2]))
+
     coord_dataset = dataset.Block3DWrapperMultiscaleAdaptive(volume_dataset,
                                                              sidelength=opt.res,
                                                              octant_size=opt.octant_size,
@@ -99,17 +115,27 @@ def main():
                                                              length=opt.steps_til_tiling,
                                                              scale_init=opt.scale_init)
 
+    model_input = coord_dataset.get_eval_samples(1.0)
+    print('coords shapes --------------------------------------------')
+    print('coords: [x, y, z, scale]')
+    print(model_input['coords'].shape)
+    print('fine_abs_coords: (len(octants) * (voxel_size *  oversample) ^ 3 / (min_octant_size * oversample)^3, (min_octant_size * oversample)^3, 3)')
+    print(model_input['fine_abs_coords'].shape)
+    print('fine_rel_coords: (len(octants) * (voxel_size *  oversample) ^ 3 / (min_octant_size * oversample)^3, (min_octant_size * oversample)^3, 3)')
+    print(model_input['fine_rel_coords'].shape)
+    print('coord_octant_idx: (len(octants) * (voxel_size *  oversample) ^ 3 / (min_octant_size * oversample)^3')
+    print(model_input['coord_octant_idx'].shape)
+
     dataloader = DataLoader(coord_dataset, shuffle=False, batch_size=1, pin_memory=True,
                             num_workers=opt.num_workers)
 
-
     for i_batch, sample_batch in enumerate(dataloader):
-        print('gt batch shape: ')
-        print(sample_batch[1]['gt'].shape)
-        print('gt max value: ')
-        print(torch.max(sample_batch[1]['gt']))
-        print('gt min value: ')
-        print(torch.min(sample_batch[1]['gt']))
+        print('sample_batch coords shape: ')
+        print(sample_batch[0]['coords'].shape)
+        print('sample_batch fine_abs_coords shape: ')
+        print(sample_batch[0]['fine_abs_coords'].shape)
+        print('sample_batch fine_rel_coords shape: ')
+        print(sample_batch[0]['fine_rel_coords'].shape)
         break
 
     model = modules.ImplicitAdaptiveOctantNet(in_features=3+1, out_features=1,
@@ -126,7 +152,7 @@ def main():
     if opt.export:
         assert opt.load is not None, 'Need to specify which model to export with --load'
 
-        export_mesh(model, coord_dataset, opt.upsample, opt.mc_threshold)
+        export_volume(model, coord_dataset, opt.upsample, opt.mc_threshold)
 
         print('Model exported ... ')
         return        
@@ -194,24 +220,17 @@ def load_from_checkpoint(experiment_dir, model, coord_dataset):
 
     return resume_checkpoint
 
-def export_mesh(model, dataset, upsample, mcubes_threshold=0.005):
+def export_volume(model, dataset, upsample, mcubes_threshold=0.005):
     res = 3*(upsample*opt.res,)
     model.octant_size = model.octant_size * upsample
 
-    print('Export: calculating occupancy...')
+    print('Export: calculating density...')
     mrc_fname = os.path.join(opt.logging_root, opt.experiment_name, f"{opt.experiment_name}.mrc")
-    occupancy = utils.write_occupancy_multiscale_summary(res, dataset, model,
+    occupancy = utils.write_volume_multiscale_summary(res, dataset, model,
                                                          None, None, None, None, None,
                                                          output_mrc=mrc_fname,
                                                          oversample=upsample,
                                                          mode='hq')
-
-    print('Export: running marching cubes...')
-    vertices, faces = mcubes.marching_cubes(occupancy, mcubes_threshold)
-
-    print('Export: exporting mesh...')
-    out_fname = os.path.join(opt.logging_root, opt.experiment_name, f"{opt.experiment_name}.dae")
-    mcubes.export_mesh(vertices, faces, out_fname)
     
 if __name__ == '__main__':
     main()

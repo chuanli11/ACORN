@@ -33,6 +33,60 @@ def write_psnr(pred_img, gt_img, writer, iter, prefix):
     writer.add_scalar(prefix + "psnr", np.mean(psnrs), iter)
 
 
+def write_volume_multiscale_summary(image_resolution, dataset, model, model_input, gt,
+                                       model_output, writer, total_steps, prefix='train_',
+                                       output_mrc='test.mrc', skip=False,
+                                       oversample=1.0, max_chunk_size=1024, mode='binary'):
+    if skip:
+        return
+
+    model_input = dataset.get_eval_samples(oversample)
+
+    print("Summary: Write volume multiscale summary...")
+
+    # convert to cuda and add batch dimension
+    tmp = {}
+    for key, value in model_input.items():
+        if isinstance(value, torch.Tensor):
+            tmp.update({key: value[None, ...]})
+        else:
+            tmp.update({key: value})
+    model_input = tmp
+
+    print("Summary: processing...")
+    pred_occupancy = process_batch_in_chunks(model_input, model, max_chunk_size=max_chunk_size)['model_out']['output']
+
+    # get voxel idx for each coordinate
+    coords = model_input['fine_abs_coords'].detach().cpu().numpy()
+    voxel_idx = np.floor((coords + 1.) / 2. * (dataset.sidelength[0] * oversample)).astype(np.int32)
+    voxel_idx = voxel_idx.reshape(-1, 3)
+
+    # init a new occupancy volume
+    display_occupancy = -1 * np.ones(image_resolution, dtype=np.float32)
+
+    # assign predicted voxel occupancy values into the array
+    pred_occupancy = pred_occupancy.reshape(-1, 1).detach().cpu().numpy()
+    display_occupancy[voxel_idx[:, 0], voxel_idx[:, 1], voxel_idx[:, 2]] = pred_occupancy[..., 0]
+
+    print(f"Summary: write MRC file {image_resolution}")
+    if mode == 'hq':
+        print("\tWriting float")
+        with mrcfile.new_mmap(output_mrc, overwrite=True, shape=image_resolution, mrc_mode=2) as mrc:
+            mrc.data[voxel_idx[:, 0], voxel_idx[:, 1], voxel_idx[:, 2]] = pred_occupancy[..., 0]
+    elif mode == 'binary':
+        print("\tWriting binary")
+        with mrcfile.new_mmap(output_mrc, overwrite=True, shape=image_resolution) as mrc:
+            mrc.data[voxel_idx[:, 0], voxel_idx[:, 1], voxel_idx[:, 2]] = pred_occupancy[..., 0] > 0
+
+    if writer is not None:
+        print("Summary: Draw octtree")
+        fig = dataset.octtree.draw()
+        writer.add_figure(prefix + 'tiling', fig, global_step=total_steps)
+
+    return display_occupancy
+
+
+
 def write_occupancy_multiscale_summary(image_resolution, dataset, model, model_input, gt,
                                        model_output, writer, total_steps, prefix='train_',
                                        output_mrc='test.mrc', skip=False,
