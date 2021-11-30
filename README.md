@@ -1,3 +1,12 @@
+## Use ACORN on Photon Data
+
+Just put `plib.h5` and `pmt_loc.csv` in the `ACORN/data` folder and run
+
+```
+python train_volume.py --config ./config_volume/config_photon_acorn.ini
+```
+
+
 # ACORN: Adaptive Coordinate Networks for Neural Scene Representation <br> SIGGRAPH 2021
 ### [Project Page](http://www.computationalimaging.org/publications/acorn/) | [Video](https://www.youtube.com/watch?v=P192X3J6cg4) | [Paper](https://arxiv.org/abs/2105.02788)
 PyTorch implementation of ACORN.<br>
