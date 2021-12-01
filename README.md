@@ -1,9 +1,22 @@
 ## Use ACORN on Photon Data
 
-Just put `plib.h5` and `pmt_loc.csv` in the `ACORN/data` folder and run
+- Follow the installation steps in  the Quickstart section.
+
+- Put `plib.h5` and `pmt_loc.csv` in the `ACORN/data` folder.
+
+- Fit a Acorn Model
 
 ```
-python train_volume.py --config ./config_volume/config_photon_acorn.ini
+cd experiment_scripts
+
+# Fit a Acorn model to a single pmt
+python train_volume.py --config ./config_volume/config_photon_acorn.ini --pmt_id ${i} --normalize_input
+
+# Export the model as mrc file
+python train_volume.py --config ./config_volume/config_photon_acorn.ini --pmt_id ${i} --load ../logs/photon_${i} --export --upsample 1 --normalize_input
+
+# Render the PMT 
+python render_mrc.py
 ```
 
 

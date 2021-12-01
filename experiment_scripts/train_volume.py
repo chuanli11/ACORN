@@ -70,6 +70,11 @@ p.add_argument('--upsample', type=int, default=2,
                help='how much to upsamples the occupancies used to generate the output mesh')
 p.add_argument('--mc_threshold', type=float, default=0.005, help='threshold for marching cubes')
 
+# benchmark options
+p.add_argument('--pmt_id', type=int, default=-1,
+               help='The id of pmt to fit the model. Default value -1 (use the summation of all pmts)')
+p.add_argument('--normalize_input', action='store_true', default=False,
+               help='Flag to normalize input data between -1, 1')
 
 opt = p.parse_args()
 
@@ -80,32 +85,14 @@ feature_grid_size = tuple(opt.feature_grid_size)
 
 assert opt.input_filepath is not None, "Must specify dataset input"
 
-for k, v in opt.__dict__.items():
-    print(k, v)
-print()
-
-
 def main():
+    if opt.pmt_id > -1:
+        opt.experiment_name = opt.experiment_name + '_' + str(opt.pmt_id)
+
     root_path = os.path.join(opt.logging_root, opt.experiment_name)
     utils.cond_mkdir(root_path)
 
-    volume_dataset = dataset.VolumeDataset(opt.input_filepath)
-
-    import numpy as np
-
-    print('Raw data dim_x, dim_y, dim_z, reshaped_data --------------------------------------------')
-    print(volume_dataset.dim_x)
-    print(volume_dataset.dim_y)
-    print(volume_dataset.dim_z)
-    print(volume_dataset.coord.shape)
-
-    print('min/max value of raw data coord  --------------------------------------------')
-    print(np.amax(volume_dataset.coord[:, 0]))
-    print(np.amin(volume_dataset.coord[:, 0]))
-    print(np.amax(volume_dataset.coord[:, 1]))
-    print(np.amin(volume_dataset.coord[:, 1]))
-    print(np.amax(volume_dataset.coord[:, 2]))
-    print(np.amin(volume_dataset.coord[:, 2]))
+    volume_dataset = dataset.VolumeDataset(opt.input_filepath, opt.pmt_id, opt.normalize_input)
 
     coord_dataset = dataset.Block3DWrapperMultiscaleAdaptive(volume_dataset,
                                                              sidelength=opt.res,
@@ -116,27 +103,8 @@ def main():
                                                              scale_init=opt.scale_init)
 
     model_input = coord_dataset.get_eval_samples(1.0)
-    print('coords shapes --------------------------------------------')
-    print('coords: [x, y, z, scale]')
-    print(model_input['coords'].shape)
-    print('fine_abs_coords: (len(octants) * (voxel_size *  oversample) ^ 3 / (min_octant_size * oversample)^3, (min_octant_size * oversample)^3, 3)')
-    print(model_input['fine_abs_coords'].shape)
-    print('fine_rel_coords: (len(octants) * (voxel_size *  oversample) ^ 3 / (min_octant_size * oversample)^3, (min_octant_size * oversample)^3, 3)')
-    print(model_input['fine_rel_coords'].shape)
-    print('coord_octant_idx: (len(octants) * (voxel_size *  oversample) ^ 3 / (min_octant_size * oversample)^3')
-    print(model_input['coord_octant_idx'].shape)
-
     dataloader = DataLoader(coord_dataset, shuffle=False, batch_size=1, pin_memory=True,
                             num_workers=opt.num_workers)
-
-    for i_batch, sample_batch in enumerate(dataloader):
-        print('sample_batch coords shape: ')
-        print(sample_batch[0]['coords'].shape)
-        print('sample_batch fine_abs_coords shape: ')
-        print(sample_batch[0]['fine_abs_coords'].shape)
-        print('sample_batch fine_rel_coords shape: ')
-        print(sample_batch[0]['fine_rel_coords'].shape)
-        break
 
     model = modules.ImplicitAdaptiveOctantNet(in_features=3+1, out_features=1,
                                               num_hidden_layers=opt.hidden_layers,
@@ -191,12 +159,14 @@ def main():
 
 def load_from_checkpoint(experiment_dir, model, coord_dataset):
     checkpoint_dir = os.path.join(experiment_dir, 'checkpoints')
-    model_files = sorted([f for f in os.listdir(checkpoint_dir) if re.search(r'model_[0-9]+.pth', f)], reverse=False)
-    optim_files = sorted([f for f in os.listdir(checkpoint_dir) if re.search(r'optim_[0-9]+.pth', f)], reverse=False)
+    model_files = sorted([f for f in os.listdir(checkpoint_dir) if re.search(r'model_final_[0-9]+.pth', f)], reverse=False)
+    optim_files = sorted([f for f in os.listdir(checkpoint_dir) if re.search(r'optim_final_[0-9]+.pth', f)], reverse=False)
 
     # append beginning of path
     model_files = [os.path.join(checkpoint_dir, f) for f in model_files]
     optim_files = [os.path.join(checkpoint_dir, f) for f in optim_files]
+    print(checkpoint_dir)
+    print(model_files)
     model_path = model_files[-1]
     optim_path = optim_files[-1]
 

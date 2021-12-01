@@ -9,7 +9,7 @@ from photon_library import PhotonLibrary
 
 
 class VolumeDataset():
-    def __init__(self, filename):
+    def __init__(self, filename, pmt_id, normalize_input):
         if not filename:
             return
 
@@ -17,18 +17,19 @@ class VolumeDataset():
         self.data = plib.numpy()
         self.data_shape = self.data.shape[0:-1]
 
-        # get the min and max
-        buffer = np.reshape(np.sum(self.data, -1), (self.data.shape[0], -1)) 
-        buffer = (buffer - np.amin(buffer)) / (np.amax(buffer) - np.amin(buffer)) - 0.5
-        data_min = np.min(buffer, axis=1)
-        data_max = np.max(buffer, axis=1)
-        data_mean = np.mean(abs(buffer), axis=1)
-        data_std = np.std(abs(buffer), axis=1)
+        if pmt_id >= 0:
+            # select a particular pmt
+            self.data = self.data[:, :, :, pmt_id]
+        else:
+            # sum up all pmts
+            self.data = np.sum(self.data, -1)
+        
+        self.data = self.data.flatten()
 
-        self.data = np.reshape(self.data, (-1, self.data.shape[-1]))
-        self.data = np.sum(self.data, -1)
-        # Normalize to [-1.0, 1.0] the value range of sin function
-        self.data = 2.0 * ((self.data - np.amin(self.data)) / (np.amax(self.data) - np.amin(self.data)) - 0.5).astype(np.float32)
+        if normalize_input:
+            # Normalize to [-1.0, 1.0] the value range of sin function
+            # self.data = 2.0 * ((self.data - np.amin(self.data)) / (np.amax(self.data) - np.amin(self.data)) - 0.5).astype(np.float32)   
+            self.data = 2.0 * (self.data - 0.5).astype(np.float32)
 
         x = np.linspace(0, self.data_shape[0] - 1, self.data_shape[0])
         y = np.linspace(0, self.data_shape[1] - 1, self.data_shape[1])
@@ -41,7 +42,6 @@ class VolumeDataset():
         self.dim_z = len(z)
 
         self.coord = np.reshape(np.stack([coordx, coordy, coordz], -1), (-1, 3))
-
         self.coord = (self.coord / self.data_shape[0:3] - 0.5) * 2.0
         self.kd_tree_sp = spKDTree(self.coord)
 
